@@ -12,6 +12,28 @@ DRV_DIR="$(pwd)"
 DRV_NAME=r8152
 DRV_VERSION=2.21.4
 
+# Check for kernel headers for all installed kernels
+echo "Checking for kernel headers..."
+MISSING_HEADERS=()
+for kernel in /lib/modules/*/; do
+  kernel_version=$(basename "$kernel")
+  if [ ! -d "/lib/modules/${kernel_version}/build" ]; then
+    MISSING_HEADERS+=("$kernel_version")
+  fi
+done
+
+if [ ${#MISSING_HEADERS[@]} -gt 0 ]; then
+  echo "WARNING: Kernel headers missing for the following kernel(s):"
+  for kver in "${MISSING_HEADERS[@]}"; do
+    echo "  - $kver"
+    echo "    Install with: apt install proxmox-headers-$kver"
+  done
+  echo ""
+  echo "DKMS will skip building for kernels without headers."
+  echo "If you plan to boot into these kernels, install headers first."
+  echo ""
+fi
+
 cp -r ${DRV_DIR} /usr/src/${DRV_NAME}-${DRV_VERSION}
 
 # Only add if not already in DKMS tree
@@ -20,8 +42,17 @@ if ! dkms status -m ${DRV_NAME} -v ${DRV_VERSION} 2>/dev/null | grep -q "${DRV_N
 fi
 
 dkms build -m ${DRV_NAME} -v ${DRV_VERSION}
-dkms install --force -m ${DRV_NAME} -v ${DRV_VERSION}
-RESULT=$?
+
+# Install for all installed kernels
+RESULT=0
+for kernel in /lib/modules/*/; do
+  kernel_version=$(basename "$kernel")
+  echo "Installing for kernel ${kernel_version}..."
+  dkms install --force -m ${DRV_NAME} -v ${DRV_VERSION} -k ${kernel_version}
+  if [ $? -ne 0 ]; then
+    RESULT=1
+  fi
+done
 
 echo "Finished running dkms install steps."
 
