@@ -22,10 +22,25 @@ else
 fi
 
 echo "Removing the dedicated udev rules file..."
-rm /etc/udev/rules.d/50-usb-realtek-net.rules
+rm -f /etc/udev/rules.d/50-usb-realtek-net.rules
 
 echo "Restarting udev..."
 udevadm control --reload-rules
+
+echo "Removing CDC driver blacklist..."
+rm -f /etc/modprobe.d/99-rtl815x-usb-blacklist.conf
+
+echo "Removing r8152 from initramfs modules..."
+IMOD="/etc/initramfs-tools/modules"
+if grep -qE '^\s*r8152(\s|$)' "$IMOD" 2>/dev/null; then
+  sed -i '/^\s*r8152\s*$/d' "$IMOD"
+  echo "  - Removed r8152 from $IMOD"
+else
+  echo "  - r8152 not found in $IMOD"
+fi
+
+echo "Updating initramfs for all kernels..."
+update-initramfs -u -k all
 
 echo "Finished."
 

@@ -31,6 +31,30 @@ cp 50-usb-realtek-net.rules /etc/udev/rules.d/
 echo "Restarting udev..."
 udevadm control --reload-rules
 
+echo "Blacklisting competing CDC drivers..."
+tee /etc/modprobe.d/99-rtl815x-usb-blacklist.conf >/dev/null <<'EOF'
+# Prevent generic/alternate drivers from binding RTL815x USB NICs
+blacklist cdc_ncm
+blacklist cdc_ether
+blacklist r8153_ecm
+# Block explicit module loading attempts
+install cdc_ncm /bin/false
+install cdc_ether /bin/false
+install r8153_ecm /bin/false
+EOF
+
+echo "Adding r8152 to initramfs modules..."
+IMOD="/etc/initramfs-tools/modules"
+if ! grep -qE '^\s*r8152(\s|$)' "$IMOD" 2>/dev/null; then
+  echo "r8152" >> "$IMOD"
+  echo "  - Added r8152 to $IMOD"
+else
+  echo "  - r8152 already in $IMOD"
+fi
+
+echo "Updating initramfs for all kernels..."
+update-initramfs -u -k all
+
 echo "Finished."
 
 exit $RESULT
