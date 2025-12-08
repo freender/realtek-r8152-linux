@@ -12,7 +12,7 @@ DRV_DIR="$(pwd)"
 DRV_NAME=r8152
 DRV_VERSION=2.21.4
 
-# Check for kernel headers for all installed kernels
+# Check and install kernel headers for all installed kernels
 echo "Checking for kernel headers..."
 MISSING_HEADERS=()
 for kernel in /lib/modules/*/; do
@@ -23,14 +23,15 @@ for kernel in /lib/modules/*/; do
 done
 
 if [ ${#MISSING_HEADERS[@]} -gt 0 ]; then
-  echo "WARNING: Kernel headers missing for the following kernel(s):"
+  echo "Installing missing kernel headers..."
   for kver in "${MISSING_HEADERS[@]}"; do
-    echo "  - $kver"
-    echo "    Install with: apt install proxmox-headers-$kver"
+    echo "  - Installing headers for $kver"
+    if apt install -y proxmox-headers-$kver; then
+      echo "    ✓ Successfully installed proxmox-headers-$kver"
+    else
+      echo "    ✗ Failed to install proxmox-headers-$kver (package may not exist)"
+    fi
   done
-  echo ""
-  echo "DKMS will skip building for kernels without headers."
-  echo "If you plan to boot into these kernels, install headers first."
   echo ""
 fi
 
