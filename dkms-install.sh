@@ -37,6 +37,26 @@ fi
 
 cp -r ${DRV_DIR} /usr/src/${DRV_NAME}-${DRV_VERSION}
 
+# Ensure supporting libraries needed for building/signing are present
+REQUIRED_PACKAGES=(libdw1 libelf1)
+MISSING_PACKAGES=()
+for pkg in "${REQUIRED_PACKAGES[@]}"; do
+  if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+    MISSING_PACKAGES+=("$pkg")
+  fi
+done
+
+if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
+  echo "Installing DKMS prerequisite packages: ${MISSING_PACKAGES[*]}..."
+  if apt install -y "${MISSING_PACKAGES[@]}"; then
+    echo "  ✓ Installed prerequisite packages"
+  else
+    echo "  ✗ Failed to install prerequisite packages: ${MISSING_PACKAGES[*]}"
+  fi
+else
+  echo "All DKMS prerequisite packages already installed."
+fi
+
 # Only add if not already in DKMS tree
 if ! dkms status -m ${DRV_NAME} -v ${DRV_VERSION} 2>/dev/null | grep -q "${DRV_NAME}/${DRV_VERSION}"; then
   dkms add -m ${DRV_NAME} -v ${DRV_VERSION}
